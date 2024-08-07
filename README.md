@@ -22,10 +22,10 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 ## Installation
 
 1. **Clone the Repository**:
-   #bash
+   ```#bash
    git clone https://github.com/Natsumi-x/autoexec-script-manager.git
    cd autoexec-script-manager
-   #
+   ```
 
 2. **Install Dependencies**:
    ```bash
