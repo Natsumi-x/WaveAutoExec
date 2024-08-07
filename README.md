@@ -1,6 +1,6 @@
 # AutoExec Script Manager
 
-AutoExec is a desktop application built with `customtkinter` that allows users to manage `.luau` scripts for the Wave application. It provides a graphical interface to select and copy scripts to an auto-execution folder and includes features such as GIF animation and script deletion.
+AutoExec is a desktop application built with `customtkinter` that allows users to manage `.luau` scripts for the Wave application. It provides a graphical interface to select and copy scripts to an auto-execution folder with an option to delete all scripts in the autoexec folder.
 
 <div align="center">
   <img src="Assets/autoexec.gif" alt="AutoExec GUI" width="300">
