@@ -6,7 +6,6 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 
 - **Select Scripts Folder**: Easily set the folder where your `.luau` scripts are located.
 - **Script Management**: Select a script to copy it to the auto-execution folder. Use the "None" option to delete all scripts in the folder.
-- **Animated GIF**: Displays an animated GIF in the application interface.
 - **Settings Persistence**: Remembers your last selected folder and script.
 
 ## Requirements
