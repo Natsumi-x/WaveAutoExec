@@ -36,7 +36,7 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 
 1. **Run the Application**:
    ```bash
-   python main.py
+   python autoexec.py
    ```
 
 2. **Select Scripts Folder**: Click "Set Scripts Folder" to choose the directory containing your `.luau` scripts.
