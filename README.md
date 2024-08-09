@@ -1,6 +1,6 @@
 # AutoExec Script Manager
 
-AutoExec is a desktop application built with `customtkinter` that allows users to manage `.luau` scripts for the Wave application. It provides a graphical interface to select and copy scripts to an auto-execution folder with an option to delete all scripts in the autoexec folder.
+AutoExec is a desktop application built with `customtkinter` that allows users to manage `.luau` scripts for the Wave application. It provides a graphical interface to select and copy scripts to an auto-execution folder with the option to remove them.
 
 <div align="center">
   <img src="Assets/autoexec.gif" alt="AutoExec GUI" width="300">
@@ -9,7 +9,8 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 ## Features
 
 - **Select Scripts Folder**: Easily set the folder where your `.luau` scripts are located.
-- **Script Management**: Select a script to copy it to the auto-execution folder. Use the "None" option to delete all scripts in the folder.
+- **Script Management**: Use checkboxes to select scripts to copy to the auto-execution folder.
+- **Interactive Log**: Click the GIF to open a log window for detailed messages.
 - **Settings Persistence**: Remembers your last selected folder and script.
 
 ## Requirements
@@ -22,36 +23,36 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 ## Installation
 
 1. **Clone the Repository**:
-   ```#bash
+   ```
    git clone https://github.com/Natsumi-x/autoexec-script-manager.git
    cd autoexec-script-manager
    ```
 
 2. **Install Dependencies**:
-   ```bash
+   ```
    pip install customtkinter Pillow
    ```
 
 ## Usage
 
 1. **Run the Application**:
-   ```bash
+   ```
    python autoexec.py
    ```
 
 2. **Select Scripts Folder**: Click "Set Scripts Folder" to choose the directory containing your `.luau` scripts.
 
-3. **Choose a Script**: Use the drop-down menu to select a script to copy to the auto-execution folder. Choose "None" to delete all scripts in the folder.
+3. **Select Scripts**: Use checkboxes to select scripts to copy to the auto-execution folder.
 
 ## Building with PyInstaller
 
 1. **Install PyInstaller**:
-   ```bash
+   ```
    pip install pyinstaller
    ```
 
 2. **Create Executable**:
-   ```bash
+   ```
    pyinstaller --noconfirm --onefile --windowed --icon "<PATH>\waveautoexec\icon.ico" --add-data "<PATH>\waveautoexec\Assets;Assets/"  "<PATH>\waveautoexec\autoexec.py"
    ```
    Replace `<PATH>` with the path to the folder.
@@ -63,8 +64,7 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 
 ### Key Components
 
-- **GIF Handling**: Uses `Pillow` to load and display animated GIFs.
-- **Script Selection**: Provides a drop-down menu for selecting scripts.
+- **Script Selection**: Provides checkboxes for selecting scripts.
 - **Settings Management**: Saves and loads user settings from a JSON file.
 
 ### Functions
@@ -74,9 +74,8 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 - `animate_gif()`: Animates the GIF in the interface.
 - `set_scripts_folder()`: Opens a dialog to set the scripts folder.
 - `update_option_menu()`: Updates the script selection menu.
-- `option_menu_select(selected_file)`: Handles script selection and copying.
-- `confirm_delete()`: Confirms and deletes all scripts in the auto-execution folder.
-- `update_console(message)`: Updates the console with messages.
+- `on_checkbox_toggle(script, checkbox, var)`: Handles script selection and copying.
+- `update_console(message)`: Updates the log messages.
 - `save_settings()`: Saves the current settings to a file.
 - `load_settings()`: Loads settings from a file.
 
