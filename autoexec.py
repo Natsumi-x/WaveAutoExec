@@ -36,37 +36,27 @@ class App(CTk):
         self.gif_index = 0
         self.gif_label = CTkLabel(master=self.FRAME0, text="")
         self.gif_label.grid(row=0, column=0, sticky="ew", pady=10)
+        self.gif_label.bind("<Button-1>", self.open_log_window)
         self.animate_gif()
 
         self.LABEL9 = CTkLabel(master=self.FRAME0, text="Wave AutoExec", font=CTkFont(size=30, weight="normal"))
         self.LABEL9.grid(row=1, column=0, sticky="ew")
         self.BUTTON10 = CTkButton(master=self, text="Set Scripts Folder", command=self.set_scripts_folder)
-        self.BUTTON10.grid(row=2, column=0, pady=10)
+        self.BUTTON10.grid(row=2, column=0, pady=30)
 
-        # Frame for the loaded scripts console
-        self.loaded_frame = CTkFrame(master=self, fg_color="transparent")
-        self.loaded_frame.grid(row=1, column=0, sticky="ew", padx=10, pady=10)
-        self.loaded_frame.grid_columnconfigure(0, weight=1)
+        # Frame for the checkboxes
+        self.checkbox_frame = CTkScrollableFrame(
+            master=self, width=280, height=340, fg_color="#1D1E1E",
+            scrollbar_button_hover_color="#1D1E1E",
+            scrollbar_button_color="#1D1E1E"
+        )
+        self.checkbox_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=10)
 
-        # Header for the loaded scripts console
-        self.loaded_label = CTkLabel(master=self.loaded_frame, text="Loaded Scripts", font=CTkFont(size=14, weight="bold"))
-        self.loaded_label.grid(row=0, column=0, sticky="ew")
-
-        # Console to display scripts in the autoexec folder
-        self.AUTOEXEC_CONSOLE = CTkTextbox(master=self.loaded_frame, width=280, height=100, state="disabled")
-        self.AUTOEXEC_CONSOLE.grid(row=1, column=0, pady=5, sticky="ew")
-
-        # Console to display log messages
-        self.CONSOLE = CTkTextbox(master=self, width=280, height=180, state="disabled")
-        self.CONSOLE.grid(row=3, column=0, pady=10, padx=10)
-
-        self.OPTIONMENU8 = CTkOptionMenu(master=self, values=["Select a script"], width=263, height=27, command=self.option_menu_select)
-        self.OPTIONMENU8.grid(row=4, column=0, pady=10)
+        self.log_messages = []
 
         self.load_settings()
         if self.script_folder:
             self.update_option_menu()
-        self.update_autoexec_console()
 
     def load_gif(self, path):
         # Load GIF and return a list of CTkImage frames and their durations
@@ -88,8 +78,23 @@ class App(CTk):
             self.gif_index = (self.gif_index + 1) % len(self.gif_frames)
             self.after(duration, self.animate_gif)
 
+    def open_log_window(self, event=None):
+        # Open a new window to display log messages
+        log_window = CTkToplevel(self)
+        log_window.geometry("600x300")
+        log_window.title("Log Messages")
+        log_window.configure(fg_color="#000000")
+
+        log_textbox = CTkTextbox(master=log_window, width=580, height=280, state="normal", fg_color="#1D1E1E")
+        log_textbox.pack(pady=10, padx=10)
+
+        for message in self.log_messages:
+            log_textbox.insert("end", message + "\n")
+
+        log_textbox.configure(state="disabled")
+
     def set_scripts_folder(self):
-        # Open a dialog to set the scripts folder and update the option menu
+        # Open a dialog to set the scripts folder and update the options
         folder_selected = filedialog.askdirectory()
         if folder_selected:
             self.script_folder = folder_selected
@@ -98,85 +103,54 @@ class App(CTk):
             self.update_console(f"Set scripts folder: {self.script_folder}")
 
     def update_option_menu(self):
-        # Update the option menu with the available .luau scripts and add 'None' option
+        # Update the checkbox list with the available .luau scripts
+        for widget in self.checkbox_frame.winfo_children():
+            widget.destroy()
+
         luau_files = [f for f in os.listdir(self.script_folder) if f.endswith('.luau')]
         self.update_console(f"Found .luau files: {luau_files}")
-        if luau_files:
-            luau_files.append("None/Delete all scripts")
-            self.OPTIONMENU8.configure(values=luau_files)
-            self.OPTIONMENU8.set("Select a script")
-            self.save_settings()
 
-    def update_autoexec_console(self):
-        # Update the console with the list of scripts in the autoexec folder
-        self.AUTOEXEC_CONSOLE.configure(state="normal")
-        self.AUTOEXEC_CONSOLE.delete("1.0", "end")
-        try:
-            files = os.listdir(AUTOEXEC_FOLDER)
-            luau_files = [f"- {f}" for f in files if f.endswith('.luau')]
-            self.AUTOEXEC_CONSOLE.insert("end", "\n".join(luau_files) + "\n")
-        except Exception as e:
-            self.AUTOEXEC_CONSOLE.insert("end", f"Error accessing autoexec folder: {e}\n")
-        self.AUTOEXEC_CONSOLE.configure(state="disabled")
+        for script in luau_files:
+            var = BooleanVar()
+            checkbox = CTkCheckBox(
+                master=self.checkbox_frame, text=script, variable=var
+            )
+            checkbox.configure(command=lambda s=script, cb=checkbox, v=var: self.on_checkbox_toggle(s, cb, v))
+            checkbox.pack(anchor="w", pady=2)
 
-    def option_menu_select(self, selected_file):
-        # Handle the selection of a script from the option menu
-        if selected_file != "Select a script":
-            if selected_file == "None/Delete all scripts":
-                self.confirm_delete()
-                return
+    def on_checkbox_toggle(self, script, checkbox, var):
+        # Handle the checkbox toggle event
+        if var.get():
+            checkbox.configure(text_color="#318ce7")
+            self.add_script_to_autoexec(script)
+        else:
+            checkbox.configure(text_color="white")
+            self.remove_script_from_autoexec(script)
 
-            source_path = os.path.join(self.script_folder, selected_file)
-            self.update_console(f"Selected file: {source_path}")
+    def add_script_to_autoexec(self, script):
+        # Add the script to the autoexec folder
+        source_path = os.path.join(self.script_folder, script)
+        if not os.path.isfile(source_path):
+            self.update_console(f"Source file does not exist: {source_path}")
+            return
 
-            if not os.path.isfile(source_path):
-                self.update_console(f"Source file does not exist: {source_path}")
-                return
+        if not os.path.isdir(AUTOEXEC_FOLDER):
+            os.makedirs(AUTOEXEC_FOLDER, exist_ok=True)
 
-            if not os.path.isdir(AUTOEXEC_FOLDER):
-                self.update_console(f"Creating autoexec folder: {AUTOEXEC_FOLDER}")
-                os.makedirs(AUTOEXEC_FOLDER, exist_ok=True)
+        target_path = os.path.join(AUTOEXEC_FOLDER, script)
+        shutil.copy(source_path, target_path)
+        self.update_console(f"Copied '{script}' to {AUTOEXEC_FOLDER}")
 
-            previous_script_path = os.path.join(AUTOEXEC_FOLDER, self.last_selected_script)
-            if self.last_selected_script and os.path.isfile(previous_script_path):
-                os.remove(previous_script_path)
-                self.update_console(f"Removed previous script: {previous_script_path}")
-
-            try:
-                target_path = os.path.join(AUTOEXEC_FOLDER, selected_file)
-                self.update_console(f"Copying file from {source_path} to {target_path}")
-                shutil.copy(source_path, target_path)
-                self.update_console(f"Copied '{selected_file}' to {AUTOEXEC_FOLDER}")
-            except Exception as e:
-                self.update_console(f"Failed to copy '{selected_file}': {e}")
-                return
-
-            self.last_selected_script = selected_file
-            self.save_settings()
-            self.update_autoexec_console()
-
-    def confirm_delete(self):
-        # Show a confirmation dialog to delete all scripts in the AutoExec folder
-        if messagebox.askyesno("Confirm Delete", "This will delete all scripts in your AutoExec folder, are you sure?"):
-            self.update_console("Selected 'None', deleting all scripts in autoexec folder.")
-            try:
-                for filename in os.listdir(AUTOEXEC_FOLDER):
-                    file_path = os.path.join(AUTOEXEC_FOLDER, filename)
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                        self.update_console(f"Removed file: {file_path}")
-                self.last_selected_script = ""
-                self.save_settings()
-            except Exception as e:
-                self.update_console(f"Failed to delete scripts: {e}")
-            self.update_autoexec_console()
+    def remove_script_from_autoexec(self, script):
+        # Remove the script from the autoexec folder
+        target_path = os.path.join(AUTOEXEC_FOLDER, script)
+        if os.path.isfile(target_path):
+            os.remove(target_path)
+            self.update_console(f"Removed '{script}' from {AUTOEXEC_FOLDER}")
 
     def update_console(self, message):
-        # Update the console textbox with a new message
-        self.CONSOLE.configure(state="normal")
-        self.CONSOLE.insert("end", message + "\n")
-        self.CONSOLE.configure(state="disabled")
-        self.CONSOLE.see("end")
+        # Update the log message list
+        self.log_messages.append(message)
         print(message)
 
     def save_settings(self):
