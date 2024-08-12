@@ -6,45 +6,54 @@ from tkinter import filedialog, messagebox
 from PIL import Image, ImageSequence
 import sys
 
+# Constants for file and folder paths
 SETTINGS_FILE = "settings.json"
 AUTOEXEC_FOLDER = os.path.expandvars(r'%LOCALAPPDATA%\Wave\autoexec')
 
 def resource_path(relative_path):
-    # Get absolute path to resource, works for dev and for PyInstaller
+    # Gets the absolute path to a resource, working both in development and when packaged with PyInstaller.
     try:
+        # Get the base path from PyInstaller's temporary directory
         base_path = sys._MEIPASS
     except Exception:
+        # If not running in a PyInstaller bundle, use the current directory
         base_path = os.path.abspath(".")
     return os.path.join(base_path, relative_path)
 
 class App(CTk):
+    # Main application class for managing and running Roblox Wave autoexec scripts.
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.script_folder = ""
-        self.last_selected_script = ""
+        # Initialize instance variable for script folder
+        self.script_folder = "" 
 
+        # Configure main window grid layout
         self.grid_columnconfigure(0, weight=1)
 
-        self.FRAME0 = CTkFrame(master=self, fg_color="transparent")
-        self.FRAME0.grid(row=0, column=0, sticky="ew", padx=10)
-        self.FRAME0.grid_columnconfigure(0, weight=1)
+        # Create and configure header frame
+        self.header_frame = CTkFrame(master=self, fg_color="transparent")
+        self.header_frame.grid(row=0, column=0, sticky="ew", padx=10)
+        self.header_frame.grid_columnconfigure(0, weight=1)
 
-        # Initialize GIF handling
+        # Load and display animated GIF logo
         self.gif_path = resource_path("Assets/animated.gif")
         self.gif_frames, self.frame_durations = self.load_gif(self.gif_path)
         self.gif_index = 0
-        self.gif_label = CTkLabel(master=self.FRAME0, text="")
+        self.gif_label = CTkLabel(master=self.header_frame, text="")
         self.gif_label.grid(row=0, column=0, sticky="ew", pady=10)
         self.gif_label.bind("<Button-1>", self.open_log_window)
         self.animate_gif()
 
-        self.LABEL9 = CTkLabel(master=self.FRAME0, text="Wave AutoExec", font=CTkFont(size=30, weight="normal"))
-        self.LABEL9.grid(row=1, column=0, sticky="ew")
-        self.BUTTON10 = CTkButton(master=self, text="Set Scripts Folder", command=self.set_scripts_folder)
-        self.BUTTON10.grid(row=2, column=0, pady=30)
+        # Display application title
+        self.title_label = CTkLabel(master=self.header_frame, text="Wave AutoExec", font=CTkFont(size=30, weight="normal"))
+        self.title_label.grid(row=1, column=0, sticky="ew")
 
-        # Frame for the checkboxes
+        # Button to set the scripts folder
+        self.set_folder_button = CTkButton(master=self, text="Set Scripts Folder", command=self.set_scripts_folder)
+        self.set_folder_button.grid(row=2, column=0, pady=30)
+
+        # Create scrollable frame for script checkboxes
         self.checkbox_frame = CTkScrollableFrame(
             master=self, width=280, height=340, fg_color="#1D1E1E",
             scrollbar_button_hover_color="#1D1E1E",
@@ -52,14 +61,16 @@ class App(CTk):
         )
         self.checkbox_frame.grid(row=3, column=0, sticky="ew", padx=10, pady=10)
 
+        # Initialize log messages list
         self.log_messages = []
 
+        # Load settings and update the UI if a script folder is already set
         self.load_settings()
         if self.script_folder:
             self.update_option_menu()
 
     def load_gif(self, path):
-        # Load GIF and return a list of CTkImage frames and their durations
+        # Loads a GIF file and returns a list of CTkImage frames and their durations.
         frames = []
         frame_durations = []
         with Image.open(path) as img:
@@ -71,7 +82,7 @@ class App(CTk):
         return frames, frame_durations
 
     def animate_gif(self):
-        # Animate the GIF by updating the label with the next frame in the sequence
+        # Animates the GIF logo by cycling through the loaded frames.
         if self.gif_frames:
             self.gif_label.configure(image=self.gif_frames[self.gif_index])
             duration = self.frame_durations[self.gif_index]
@@ -79,7 +90,7 @@ class App(CTk):
             self.after(duration, self.animate_gif)
 
     def open_log_window(self, event=None):
-        # Open a new window to display log messages
+        # Opens a new window to display log messages.
         log_window = CTkToplevel(self)
         log_window.geometry("600x300")
         log_window.title("Log Messages")
@@ -94,7 +105,7 @@ class App(CTk):
         log_textbox.configure(state="disabled")
 
     def set_scripts_folder(self):
-        # Open a dialog to set the scripts folder and update the options
+        # Opens a directory dialog to select the scripts folder and updates the UI.
         folder_selected = filedialog.askdirectory()
         if folder_selected:
             self.script_folder = folder_selected
@@ -103,13 +114,16 @@ class App(CTk):
             self.update_console(f"Set scripts folder: {self.script_folder}")
 
     def update_option_menu(self):
-        # Update the checkbox list with the available .luau scripts
+        # Updates the checkbox list with the available .luau scripts in the selected folder.
+        # Clear existing checkboxes
         for widget in self.checkbox_frame.winfo_children():
             widget.destroy()
 
+        # Get .luau files from the script folder
         luau_files = [f for f in os.listdir(self.script_folder) if f.endswith('.luau')]
         self.update_console(f"Found .luau files: {luau_files}")
 
+        # Create a checkbox for each .luau script
         for script in luau_files:
             var = BooleanVar()
             checkbox = CTkCheckBox(
@@ -119,7 +133,7 @@ class App(CTk):
             checkbox.pack(anchor="w", pady=2)
 
     def on_checkbox_toggle(self, script, checkbox, var):
-        # Handle the checkbox toggle event
+        # Handles checkbox toggle events, adding or removing scripts from the autoexec folder.
         if var.get():
             checkbox.configure(text_color="#318ce7")
             self.add_script_to_autoexec(script)
@@ -154,21 +168,19 @@ class App(CTk):
         print(message)
 
     def save_settings(self):
-        # Save the current settings to a JSON file
+        # Save the current settings to the settings file.
         settings = {
-            "script_folder": self.script_folder,
-            "last_selected_script": self.last_selected_script
+            "script_folder": self.script_folder 
         }
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f)
 
     def load_settings(self):
-        # Load the settings from a JSON file if it exists
+        # Load settings from the settings file.
         if os.path.isfile(SETTINGS_FILE):
             with open(SETTINGS_FILE, 'r') as f:
                 settings = json.load(f)
                 self.script_folder = settings.get("script_folder", "")
-                self.last_selected_script = settings.get("last_selected_script", "")
 
 if __name__ == "__main__":
     set_default_color_theme("blue")
