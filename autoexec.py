@@ -2,9 +2,12 @@ import os
 import shutil
 import json
 from customtkinter import *
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 from PIL import Image, ImageSequence
 import sys
+import threading
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 # Constants for file and folder paths
 SETTINGS_FILE = "settings.json"
@@ -25,9 +28,13 @@ class App(CTk):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Initialize instance variable for script folder
-        self.script_folder = "" 
-
+        # Initialize instance variables
+        self.script_folder = ""
+        self.load_settings()
+        
+        # Keep track of previous files for efficient updating
+        self.previous_files = set()
+        
         # Configure main window grid layout
         self.grid_columnconfigure(0, weight=1)
 
@@ -64,10 +71,20 @@ class App(CTk):
         # Initialize log messages list
         self.log_messages = []
 
-        # Load settings and update the UI if a script folder is already set
-        self.load_settings()
+        # Initialize file system observer
+        self.observer = Observer()
+
+        # Start the file system observer
+        self.restart_observer()
         if self.script_folder:
             self.update_option_menu()
+
+    def load_settings(self):
+        # Load settings from the settings file.
+        if os.path.isfile(SETTINGS_FILE):
+            with open(SETTINGS_FILE, 'r') as f:
+                settings = json.load(f)
+                self.script_folder = settings.get("script_folder", "")
 
     def load_gif(self, path):
         # Loads a GIF file and returns a list of CTkImage frames and their durations.
@@ -112,48 +129,82 @@ class App(CTk):
             self.update_option_menu()
             self.save_settings()
             self.update_console(f"Set scripts folder: {self.script_folder}")
+            self.restart_observer()
+
+    def restart_observer(self):
+        # Restarts the file system observer for the script folder and autoexec folder
+        if self.observer.is_alive():
+            self.observer.stop()
+            self.observer.join()
+        self.observer = Observer()
+
+        if os.path.isdir(self.script_folder):
+            self.observer.schedule(Handler(self), self.script_folder, recursive=False)
+        if os.path.isdir(AUTOEXEC_FOLDER):
+            self.observer.schedule(Handler(self), AUTOEXEC_FOLDER, recursive=False)
+        self.observer.start()
 
     def update_option_menu(self):
-        # Updates the checkbox list with the available .luau scripts in the selected folder.
-        # Clear existing checkboxes
-        for widget in self.checkbox_frame.winfo_children():
-            widget.destroy()
+        # Updates the checkbox list with the available .luau scripts in the selected folder and autoexec folder.
+        script_files = {f for f in os.listdir(self.script_folder) if f.endswith('.luau')} if os.path.isdir(self.script_folder) else set()
+        autoexec_files = {f for f in os.listdir(AUTOEXEC_FOLDER) if f.endswith('.luau')} if os.path.isdir(AUTOEXEC_FOLDER) else set()
 
-        # Get .luau files from the script folder
-        luau_files = [f for f in os.listdir(self.script_folder) if f.endswith('.luau')]
-        self.update_console(f"Found .luau files: {luau_files}")
+        # Rebuild checkboxes only if the set of files has changed
+        if script_files != self.previous_files: 
+            for widget in self.checkbox_frame.winfo_children():
+                widget.destroy()
 
-        # Create a checkbox for each .luau script
-        for script in luau_files:
-            var = BooleanVar()
-            checkbox = CTkCheckBox(
-                master=self.checkbox_frame, text=script, variable=var
-            )
-            checkbox.configure(command=lambda s=script, cb=checkbox, v=var: self.on_checkbox_toggle(s, cb, v))
-            checkbox.pack(anchor="w", pady=2)
+            all_files = sorted(script_files | autoexec_files)
+
+            for script in all_files:
+                self.create_checkbox(script, script in autoexec_files)
+
+            self.previous_files = script_files.copy() 
+        else:
+            # If the set of files hasn't changed, update checkbox colors
+            for checkbox in self.checkbox_frame.winfo_children():
+                script = checkbox.cget("text")
+                self.update_checkbox_color(checkbox, script in script_files, script in autoexec_files)
+
+    def update_checkbox_color(self, checkbox, in_scripts, in_autoexec):
+        # Updates the color of a checkbox based on its presence in script folder and autoexec folder
+        if in_autoexec and in_scripts:
+            checkbox.select()
+            checkbox.configure(text_color="#318ce7")
+        elif in_autoexec:
+            checkbox.select()
+            checkbox.configure(fg_color="purple", text_color="purple")
+        else:
+            checkbox.deselect()
+            checkbox.configure(text_color="white")
+
+    def create_checkbox(self, script, in_autoexec):
+        # Creates a checkbox for a script and configures its initial state
+        var = BooleanVar(value=in_autoexec)
+        checkbox = CTkCheckBox(master=self.checkbox_frame, text=script, variable=var)
+        self.update_checkbox_color(checkbox, script in {f for f in os.listdir(self.script_folder) if f.endswith('.luau')} if os.path.isdir(self.script_folder) else set(), in_autoexec)
+        checkbox.configure(command=lambda s=script, cb=checkbox, v=var: self.on_checkbox_toggle(s, cb, v))
+        checkbox.pack(anchor="w", pady=2)
 
     def on_checkbox_toggle(self, script, checkbox, var):
         # Handles checkbox toggle events, adding or removing scripts from the autoexec folder.
         if var.get():
-            checkbox.configure(text_color="#318ce7")
             self.add_script_to_autoexec(script)
+            checkbox.select()
+            checkbox.configure(text_color="#318ce7")
         else:
-            checkbox.configure(text_color="white")
             self.remove_script_from_autoexec(script)
+            checkbox.deselect()
+            checkbox.configure(text_color="white")
 
     def add_script_to_autoexec(self, script):
-        # Add the script to the autoexec folder
+        # Add the script to the autoexec folder if it exists in the script folder
         source_path = os.path.join(self.script_folder, script)
-        if not os.path.isfile(source_path):
-            self.update_console(f"Source file does not exist: {source_path}")
-            return
-
-        if not os.path.isdir(AUTOEXEC_FOLDER):
-            os.makedirs(AUTOEXEC_FOLDER, exist_ok=True)
-
-        target_path = os.path.join(AUTOEXEC_FOLDER, script)
-        shutil.copy(source_path, target_path)
-        self.update_console(f"Copied '{script}' to {AUTOEXEC_FOLDER}")
+        if os.path.isfile(source_path):
+            target_path = os.path.join(AUTOEXEC_FOLDER, script)
+            if not os.path.isfile(target_path):
+                shutil.copy(source_path, target_path)
+                self.update_console(f"Copied '{script}' to {AUTOEXEC_FOLDER}")
 
     def remove_script_from_autoexec(self, script):
         # Remove the script from the autoexec folder
@@ -170,17 +221,25 @@ class App(CTk):
     def save_settings(self):
         # Save the current settings to the settings file.
         settings = {
-            "script_folder": self.script_folder 
+            "script_folder": self.script_folder
         }
         with open(SETTINGS_FILE, 'w') as f:
             json.dump(settings, f)
 
-    def load_settings(self):
-        # Load settings from the settings file.
-        if os.path.isfile(SETTINGS_FILE):
-            with open(SETTINGS_FILE, 'r') as f:
-                settings = json.load(f)
-                self.script_folder = settings.get("script_folder", "")
+class Handler(FileSystemEventHandler):
+    # File system event handler for monitoring changes in script and autoexec folders
+    def __init__(self, app):
+        self.app = app
+
+    def on_created(self, event):
+        # Handle file creation events
+        if not event.is_directory and event.src_path.endswith('.luau'):
+            self.app.after(100, self.app.update_option_menu)
+
+    def on_deleted(self, event):
+        # Handle file deletion events
+        if not event.is_directory and event.src_path.endswith('.luau'):
+            self.app.after(100, self.app.update_option_menu)
 
 if __name__ == "__main__":
     set_default_color_theme("blue")
