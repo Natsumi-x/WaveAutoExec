@@ -60,9 +60,8 @@ AutoExec is a desktop application built with `customtkinter` that allows users t
 
 2. **Create Executable**:
    ```
-   pyinstaller --noconfirm --onefile --windowed --icon "<PATH>\waveautoexec\icon.ico" --add-data "<PATH>\waveautoexec\Assets;Assets/"  "<PATH>\waveautoexec\autoexec.py"
+   pyinstaller --noconfirm --onefile --windowed --icon "Assets\icon.ico" --add-data "Assets;Assets/" "autoexec.py"
    ```
-   Replace `<PATH>` with the path to the folder.
 
 3. **Run the Executable**:
    Navigate to the `output` directory and execute the `AutoExec.exe`.
