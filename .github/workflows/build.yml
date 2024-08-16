@@ -30,7 +30,7 @@ jobs:
           
       - name: Build with PyInstaller
         run: |
-          pyinstaller --noconfirm --onefile --windowed --icon "Assets/icon.ico" --add-data "Assets;Assets/"  "autoexec.py"
+          pyinstaller --noconfirm --onefile --windowed --icon "Assets/icon.ico" --add-data="Assets;Assets/"  "autoexec.py"
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
